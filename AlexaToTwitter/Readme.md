@@ -1,3 +1,60 @@
+# AlexaToTwitter
+Amazon Echoを使用してTwitterへ挨拶文を投稿するカスタムスキルのLambda部分です。
+
+以下のリクエストに反応にしてTwitterに投稿します。
+
+例）「あれくさ、ついったーでおはようってつぶやいて」
+
+# スキル設定
+## スキル名 ＆ 呼び出し名
+ともに「ついったー」としました。
+
+## インテントスキーマ
+TwitterIntentというインテントで、WordというスロットをGREETING_WORD型で定義
+
+```json
+{
+  "intents": [
+    {
+      "slots": [
+        {
+          "name": "Word",
+          "type": "GREETING_WORD"
+        }
+      ],
+      "intent": "TwitterIntent"
+    },
+    {
+      "intent": "AMAZON.HelpIntent"
+    },
+    {
+      "intent": "AMAZON.StopIntent"
+    }
+  ]
+}
+```
+
+## カスタムスロットタイプ
+タイプ：GREETING_WORD
+
+値：  
+おはよう  
+こんにちは  
+おやすみ  
+こんばんは  
+やあ  
+へい  
+はーい  
+
+## サンプル発話
+以下の５通り
+
+TwitterIntent {Word} をつぶやいて  
+TwitterIntent {Word} ってつぶやいて  
+TwitterIntent {Word} ってやって  
+TwitterIntent {Word} て言って  
+TwitterIntent {Word} して  
+
 # AWS Lambda Empty Function Project
 
 This starter project consists of:
