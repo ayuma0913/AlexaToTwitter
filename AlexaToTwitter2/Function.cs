@@ -14,6 +14,12 @@ using Alexa.NET.Request.Type;
 
 namespace AlexaToTwitter2
 {
+    internal enum EConversationState
+    {
+        StartState,
+        ConfirmState
+    }
+
     public class Function
     {
         private readonly string APIKey;
@@ -21,12 +27,19 @@ namespace AlexaToTwitter2
         private readonly string AccessToken;
         private readonly string AccessTokenSecret;
 
+        private Dictionary<EConversationState, Func<IntentRequest, Session, SkillResponse>> FunctionMap
+            = new Dictionary<EConversationState, Func<IntentRequest, Session, SkillResponse>>();
+
         public Function()
         {
             APIKey = Environment.GetEnvironmentVariable("API_KEY");
             APISecret = Environment.GetEnvironmentVariable("API_KEY_SECRET");
             AccessToken = Environment.GetEnvironmentVariable("ACCESS_TOKEN");
             AccessTokenSecret = Environment.GetEnvironmentVariable("ACCESS_TOKEN_SECRET");
+
+            // ステートに応じた関数をキャッシュしておく
+            FunctionMap[EConversationState.StartState] = FunctionHandler_StartState;
+            FunctionMap[EConversationState.ConfirmState] = FunctionHandler_ConfirmState;
         }
 
         public SkillResponse FunctionHandler(SkillRequest input, ILambdaContext context)
@@ -37,13 +50,48 @@ namespace AlexaToTwitter2
             // インテントリクエスト以外は無視
             if (requestType != typeof(IntentRequest)) return null;
 
-            var intentRequest = input.Request as IntentRequest;
+            // ステートの読み取り
+            EConversationState State = EConversationState.StartState;
+            if (input.Session?.Attributes?.ContainsKey("STATE") == true)
+            {
+                Enum.TryParse(input.Session.Attributes["STATE"] as string, out State);
+            }
 
-            // TwitterIntetn以外は無視
-            if (!intentRequest.Intent.Name.Equals("TwitterIntent")) return null;
+            LambdaLogger.Log($">> STATE:{State.ToString()} <<\n");
+
+            // ステートに応じたFunctionを呼び出し
+            return FunctionMap[State](input.Request as IntentRequest, input.Session);
+        }
+
+        private SkillResponse FunctionHandler_StartState(IntentRequest intentRequest, Session Session)
+        {
+            // TwitterIntent以外は無視
+            if (intentRequest.Intent.Name.Equals("TwitterIntent") == false) return ResponseBuilder.Tell("予期しないリクエストです。中止します");
 
             // Wordスロットの値を取得
             var wordSlotValue = intentRequest.Intent.Slots["Word"].Value;
+
+            // Axexaから応答
+            Reprompt rep = new Reprompt();
+            rep.OutputSpeech = new PlainTextOutputSpeech() { Text = "つぶやいてよろしいですか?" };
+            Session.Attributes = new Dictionary<string, object>();
+            Session.Attributes["Word"] = wordSlotValue;
+            Session.Attributes["STATE"] = EConversationState.ConfirmState.ToString();
+
+            return ResponseBuilder.Ask($"{wordSlotValue}とつぶやいてよろしいですか?", rep, Session);
+        }
+
+        private SkillResponse FunctionHandler_ConfirmState(IntentRequest intentRequest, Session Session)
+        {
+            if (intentRequest.Intent.Name.Equals("AMAZON.NoIntent"))
+            {
+                return ResponseBuilder.Tell("はい、中止します");
+            }
+
+
+            if (intentRequest.Intent.Name.Equals("AMAZON.YesIntent") == false) return ResponseBuilder.Tell("予期しない返答です。中止します");
+          
+            var wordSlotValue = Session.Attributes["Word"] as string;
 
             // Twitter APIの必要情報を生成
             var tokens = CoreTweet.Tokens.Create($"{APIKey}", $"{APISecret}", $"{AccessToken}", $"{AccessTokenSecret}");
@@ -51,8 +99,8 @@ namespace AlexaToTwitter2
             // つぶやき実施
             tokens.Statuses.UpdateAsync(new { status = wordSlotValue }).Wait();
 
-            // Axexaから応答
             return ResponseBuilder.Tell($"{wordSlotValue}とつぶやきました");
+          
         }
     }
 }
