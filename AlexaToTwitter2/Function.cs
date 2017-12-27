@@ -63,6 +63,12 @@ namespace AlexaToTwitter2
             return FunctionMap[State](input.Request as IntentRequest, input.Session);
         }
 
+        /// <summary>
+        /// StartState時の処理
+        /// </summary>
+        /// <param name="intentRequest">リクエスト</param>
+        /// <param name="Session">セッション</param>
+        /// <returns>レスポンス</returns>
         private SkillResponse FunctionHandler_StartState(IntentRequest intentRequest, Session Session)
         {
             // TwitterIntent以外は無視
@@ -73,24 +79,34 @@ namespace AlexaToTwitter2
 
             // Axexaから応答
             Reprompt rep = new Reprompt();
-            rep.OutputSpeech = new PlainTextOutputSpeech() { Text = "つぶやいてよろしいですか?" };
+            rep.OutputSpeech = new PlainTextOutputSpeech() { Text = "つぶやいていいですか?" };
             Session.Attributes = new Dictionary<string, object>();
+            // つぶやく文言を記憶する
             Session.Attributes["Word"] = wordSlotValue;
+            // ステートをConfirmStateに変更
             Session.Attributes["STATE"] = EConversationState.ConfirmState.ToString();
 
-            return ResponseBuilder.Ask($"{wordSlotValue}とつぶやいてよろしいですか?", rep, Session);
+            return ResponseBuilder.Ask($"{wordSlotValue}とつぶやいていいですか?", rep, Session);
         }
 
+        /// <summary>
+        /// ConfirmState時の処理
+        /// </summary>
+        /// <param name="intentRequest">リクエスト</param>
+        /// <param name="Session">セッション</param>
+        /// <returns>レスポンス</returns>
         private SkillResponse FunctionHandler_ConfirmState(IntentRequest intentRequest, Session Session)
         {
+            // NOが返ってきたらやめる
             if (intentRequest.Intent.Name.Equals("AMAZON.NoIntent"))
             {
-                return ResponseBuilder.Tell("はい、中止します");
+                return ResponseBuilder.Tell("はい、やめます");
             }
 
-
+            // YES以外は想定外なのでやめる
             if (intentRequest.Intent.Name.Equals("AMAZON.YesIntent") == false) return ResponseBuilder.Tell("予期しない返答です。中止します");
           
+            // 記憶しておいた文言を取得
             var wordSlotValue = Session.Attributes["Word"] as string;
 
             // Twitter APIの必要情報を生成
@@ -99,6 +115,7 @@ namespace AlexaToTwitter2
             // つぶやき実施
             tokens.Statuses.UpdateAsync(new { status = wordSlotValue }).Wait();
 
+            // 結果を報告
             return ResponseBuilder.Tell($"{wordSlotValue}とつぶやきました");
           
         }
