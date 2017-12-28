@@ -57,8 +57,6 @@ namespace AlexaToTwitter2
                 Enum.TryParse(input.Session.Attributes["STATE"] as string, out State);
             }
 
-            LambdaLogger.Log($">> STATE:{State.ToString()} <<\n");
-
             // ステートに応じたFunctionを呼び出し
             return FunctionMap[State](input.Request as IntentRequest, input.Session);
         }
@@ -104,8 +102,11 @@ namespace AlexaToTwitter2
             }
 
             // YES以外は想定外なのでやめる
-            if (intentRequest.Intent.Name.Equals("AMAZON.YesIntent") == false) return ResponseBuilder.Tell("予期しない返答です。中止します");
-          
+            if (intentRequest.Intent.Name.Equals("AMAZON.YesIntent") == false)
+            {
+                return ResponseBuilder.Tell("予期しない返答です。中止します");
+            }
+
             // 記憶しておいた文言を取得
             var wordSlotValue = Session.Attributes["Word"] as string;
 
